@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "scheme": "acne",
+    "newArchEnabled": true,
+    "plugins": [
+      "expo-router",
+      "expo-sqlite"
+    ],
+    "name": "myappsqlite",
+    "slug": "myappsqlite"
+  }
+}
