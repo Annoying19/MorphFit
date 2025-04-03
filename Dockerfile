@@ -8,10 +8,11 @@ WORKDIR /app
 COPY . .
 
 # Install dependencies
-RUN pip install --no-cache-dir -r app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose port
 EXPOSE 8080
 
 # Run with gunicorn
 CMD ["gunicorn", "-b", "0.0.0.0:8080", "app.main:app"]
+
