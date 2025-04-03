@@ -5,15 +5,43 @@ from itertools import product
 from PIL import Image
 from torchvision import transforms
 from flask_sqlalchemy import SQLAlchemy
-from siamese_network import SiameseNetwork
-from database import db, ImageModel, RecommendationResult
+from app.siamese_network import SiameseNetwork
+from app.database import db, ImageModel, RecommendationResult
+import gdown
 
-# Setup device and model
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = SiameseNetwork().to(device)
-model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "siamese_model.pt")
-model.load_state_dict(torch.load(model_path, map_location=device))
-model.eval()
+
+
+def download_model():
+    model_path = "app/siamese_model.pt"
+    model_url = "https://drive.google.com/uc?export=download&id=1KoyusogBnMQEtqAaY2JvlbaV1vRbHMql"
+
+    if not os.path.exists(model_path):
+        print("🔽 Downloading Siamese model from Google Drive...")
+        try:
+            import gdown
+            gdown.download(model_url, model_path, quiet=False)
+            print("✅ Model downloaded successfully.")
+        except Exception as e:
+            print(f"❌ Failed to download model: {e}")
+            return None
+    else:
+        print("📦 Model already exists locally.")
+    return model_path  # <-- ✅ This is crucial!
+
+
+def load_model():
+    model_path = download_model()
+    device = torch.device("cpu")
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Siamese model not found at {model_path}")
+
+    model = SiameseNetwork().to(device)
+    model.load_state_dict(torch.load(model_path, map_location=device, weights_only=False))
+    model.eval()
+    return model
+
+# 🔽 Now you can load it
+model = load_model()
 
 transform = transforms.Compose([
     transforms.Resize((224, 224)),

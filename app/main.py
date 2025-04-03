@@ -7,8 +7,8 @@ import uuid
 import threading
 import io
 import requests
-from database import db, ImageModel, RecommendationResult, User, Saved
-from recommend_outfits import generate_recommendations
+from app.database import db, ImageModel, RecommendationResult, User, Saved
+from app.recommend_outfits import load_model, generate_recommendations
 import json
 from mlxtend.frequent_patterns import fpgrowth
 from mlxtend.preprocessing import TransactionEncoder
@@ -34,7 +34,7 @@ db.init_app(app)
 
 # Automatically download model from Google Drive if not present
 def download_model():
-    model_path = "app/siamese_model.pt"
+    model_path = os.path.join("siamese_model.pt")
     model_url = "https://drive.google.com/uc?export=download&id=1KoyusogBnMQEtqAaY2JvlbaV1vRbHMql"
 
     if not os.path.exists(model_path):
@@ -49,9 +49,13 @@ def download_model():
     else:
         print("📦 Model already exists locally.")
 
+
+
 with app.app_context():
     db.create_all()
-    download_model()
+    download_model()       # ✅ Downloads the model file
+    model = load_model()   # ✅ Load model only after download is guaranteed
+
 
 # Endpoint to serve uploaded images
 @app.route("/uploads/<filename>")
