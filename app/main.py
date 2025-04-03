@@ -53,8 +53,12 @@ def download_model():
 
 with app.app_context():
     db.create_all()
-    download_model()       # ✅ Downloads the model file
-    model = load_model()   # ✅ Load model only after download is guaranteed
+    try:
+        download_model()  # safe download
+        model = load_model()  # this should not raise anything
+    except Exception as e:
+        print(f"❌ Model failed to load: {e}")
+        model = None  # fail gracefully
 
 
 # Endpoint to serve uploaded images
@@ -494,7 +498,3 @@ def remove_outfit_by_id():
     db.session.commit()
 
     return jsonify({'message': 'Saved outfit removed successfully'}), 200
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)

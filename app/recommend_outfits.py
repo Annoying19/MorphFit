@@ -9,7 +9,7 @@ from app.siamese_network import SiameseNetwork
 from app.database import db, ImageModel, RecommendationResult
 import gdown
 
-
+model = None  # ✅ Lazy-load model only when needed
 
 def download_model():
     model_path = "app/siamese_model.pt"
@@ -26,22 +26,19 @@ def download_model():
             return None
     else:
         print("📦 Model already exists locally.")
-    return model_path  # <-- ✅ This is crucial!
+    return model_path
 
 
 def load_model():
     model_path = download_model()
     device = torch.device("cpu")
-    if not os.path.exists(model_path):
+    if not model_path or not os.path.exists(model_path):
         raise FileNotFoundError(f"Siamese model not found at {model_path}")
 
     model = SiameseNetwork().to(device)
     model.load_state_dict(torch.load(model_path, map_location=device, weights_only=False))
     model.eval()
     return model
-
-# 🔽 Now you can load it
-model = load_model()
 
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -54,6 +51,10 @@ def create_blank_image_tensor():
 
 
 def generate_recommendations(user_id):
+    global model
+    if model is None:
+        model = load_model()  # ✅ Lazy-load the model
+
     print(f"🔄 Generating recommendations for user: {user_id}")
 
     user_images = ImageModel.query.filter_by(user_id=user_id).all()
@@ -65,7 +66,6 @@ def generate_recommendations(user_id):
     if combined_top_wear:
         category_mapping["All-body/Tops"] = combined_top_wear
 
-    # ✅ START replacing from here:
     core_categories = {
         "All-body/Tops": category_mapping.get("All-body/Tops", []),
         "Bottoms": category_mapping.get("Bottoms", []),
@@ -80,7 +80,7 @@ def generate_recommendations(user_id):
     valid_combinations = []
     combo_logs = {}
 
-    for r in range(2, 8):  # Allow 2 to 7 items
+    for r in range(2, 8):
         slots = []
 
         if (core_categories["All-body/Tops"] and 
@@ -91,7 +91,6 @@ def generate_recommendations(user_id):
                 core_categories["Bottoms"],
                 core_categories["Shoes"]
             ]
-        
         elif (core_categories["All-body/Tops"] and core_categories["Shoes"]):
             slots = [
                 core_categories["All-body/Tops"],
@@ -115,9 +114,7 @@ def generate_recommendations(user_id):
 
     for size, count in combo_logs.items():
         print(f"✔️ Generated {count} outfits with {size} items")
-    # ✅ STOP here.
 
-    # 🚀 The rest of your image_tensor, DB save, etc. stays the same:
     upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads"))
     blank_tensor = create_blank_image_tensor()
 
@@ -136,7 +133,7 @@ def generate_recommendations(user_id):
                 images_tensors.append(transform(img).unsqueeze(0))
 
         with torch.no_grad():
-            feature_embeddings = torch.stack([model.forward_once(img.to(device)) for img in images_tensors], dim=1)
+            feature_embeddings = torch.stack([model.forward_once(img.to("cpu")) for img in images_tensors], dim=1)
             logits, _ = model(*images_tensors)
             probabilities = torch.sigmoid(logits)
 
@@ -157,4 +154,3 @@ def generate_recommendations(user_id):
 
     db.session.commit()
     print(f"✅ Filtered recommendations saved for user {user_id}")
-
